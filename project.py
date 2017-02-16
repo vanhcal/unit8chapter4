@@ -151,21 +151,8 @@ def gdisconnect():
   url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']
   h = httplib2.Http()
   result = h.request(url, 'GET') [0]
-
-  # a 200 response means a successful disconnect
-  if result['status'] == '200':
-    # Reset the user's session, delete the data below
-    del login_session['access_token']
-    del login_session['gplus_id']
-    del login_session['username']
-    del login_session['email']
-    del login_session['picture']
-
-    # tell user theat they were successfully logged out
-    response = make_response(json.dumps('Successfully disconnected.'), 200)
-    response.headers['Content-Type'] = 'application/json'
-    return response
-  else:
+  # something other than a 200 response indicates an unsuccessful disconnect
+  if result['status'] != '200':
     # if we get back something besides 200, then for whatever reason, the given token was invalid
     response = make_response(json.dumps('Failed to revoke token for given user.'), 400)
     response.headers['Content-Type'] = 'application/json'
@@ -179,6 +166,7 @@ def fbconnect():
     response.headers['Content-Type'] = 'application/json'
     return response
   access_token = request.data
+  print "access token received %s" % access_token
 
   # Exchange client token for long-lived server-side token
   # Send app secret and app id to facebook, to verify server identity
@@ -190,12 +178,12 @@ def fbconnect():
 
   # User token to get user info from API
   # includes expires field that indicates how long token is valid 
-  userinfo_url = 'https://graph.facebook.com/v2.4/me?%s&fields=name,id,email' % token
+  userinfo_url = "https://graph.facebook.com/v2.4/me"
   # strip expire tag from access token, since we don't need it to make apiu calls 
   token = result.split("&")[0]
 
   # if the token works, we should be able to make api calls with new token
-  url = 'https://graph.facebook.com/v2.2/me?%s' % token 
+  url = 'https://graph.facebook.com/v2.4/me?%s&fields=name,id,email' % token
   h = httplib2.Http()
   result = h.request(url, 'GET')[1]
   # print "url sent for API access: %s" %
@@ -207,8 +195,12 @@ def fbconnect():
   login_session['email'] = data["email"]
   login_session['facebook_id'] = data["id"]
 
+  # The token must be stored in the login_session in order to properly logout, let's strip out the information before the equals sign in our token
+  stored_token = token.split("=")[1]
+  login_session['access_token'] = stored_token
+
   # use a separate api call to retrieve profile picture
-  url = 'https://graph.facebook.com/v2.2/me/picture?%s&redirect=0&height=200&width=200' % token
+  url = 'https://graph.facebook.com/v2.4/me/picture?%s&redirect=0&height=200&width=200' % token
   h = httplib2.Http()
   result = h.request(url, 'GET')[1]
   data = json.loads(result)
@@ -227,22 +219,21 @@ def fbconnect():
   output += '!<h1>'
   output += '<img src ="'
   output += login_session['picture']
-  output += '" style = "width: 300px; height: 300px; border-radius: 150px;-webkit-border-radius: 150px;-moz-border-radius: 150px;">'
+  output += ' " style = "width: 300px; height: 300px;border-radius: 150px;-webkit-border-radius: 150px;-moz-border-radius: 150px;"> '
+
+  flash("Now logged in as %s" % login_session['username'])
+  return output
 
 # reject the login token when the user is ready to log out
 @app.route('/fbdisconnect')
 def fbdisconnect():
   facebook_id = login_session['facebook_id']
-  url = 'https://graph.facebook.com/%s/permissions' % facebook_id
+  # access token must be included to successfully logout
+  access_token = login_session['access_token']
+  url = 'https://graph.facebook.com/%s/permissions?access_token=%s' % (facebook_id,access_token)
   h = httplib2.Http()
   result = h.request(url, 'DELETE')[1]
-  # if the logout is successful, depopulate the login session accordingly
-  del login_session['username']
-  del login_session['email']
-  del login_session['picture']
-  del login_session['user_id']
-  del login_session['facebook_id']
-  return "you have been logged out"
+  return "You have been logged out"
 
 # create a new method for disconnecting regardless of provider
 @app.route('/disconnect')
@@ -255,7 +246,6 @@ def disconnect():
     if login_session['provider'] == 'facebook':
       fbdisconnect()
       del login_session['facebook_id']
-
     del login_session['username']
     del login_session['email']
     del login_session['picture']

@@ -158,7 +158,7 @@ def gdisconnect():
     response.headers['Content-Type'] = 'application/json'
     return response 
 
-@app.route('fbconnect', methods=['POST'])
+@app.route('/fbconnect', methods=['POST'])
 def fbconnect():
   # verify the value of STATE to protect against cross-site forgery attacks
   if request.args.get('state') != login_session['state']:

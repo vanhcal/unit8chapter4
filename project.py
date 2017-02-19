@@ -170,9 +170,8 @@ def fbconnect():
 
   # Exchange client token for long-lived server-side token
   # Send app secret and app id to facebook, to verify server identity
-  app_id = json.loads(open('fb_client_secrets.json', 'r').read()) ['web']['372022926513956']
-  app_secret = json.loads(open('fb_client_secrets.json', 'r').read())['web']['0ba36c72430a046262196e6cfb8400b4']
-  url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=%s&client_secret=%s&fb_exchange_token=%s' % (app_id, app_secret, access_token)
+  app_id = json.loads(open('fb_client_secrets.json', 'r').read())['web']['app_id']
+  app_secret = json.loads(open('fb_client_secrets.json', 'r').read())['web']['app_secret']url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=%s&client_secret=%s&fb_exchange_token=%s' % (app_id, app_secret, access_token)
   h = httplib2.Http()
   result = h.request(url, 'GET')[1]
 

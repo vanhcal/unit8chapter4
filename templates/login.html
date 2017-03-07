@@ -1,0 +1,146 @@
+<html>
+<head>
+<!--PREREQUISITES FOR GOOGLE SIGN IN-->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js">
+ </script>
+<!--creates an anonymous function that inserts script into the dom of the login.html page-->
+<script src="//apis.google.com/js/platform.js?onload=start"> </script>
+<!--END PREREQUISITES FOR GOOGLE SIGN IN-->
+</head>
+<body>
+
+<!--GOOGLE PLUS SIGN IN-->
+<!--div for actual google sign-in button-->
+<div id="signInButton">
+<!--openid is the actual google resource we want to be able to access, which includes name, profile, email-->
+<!--postmessage enables one-time code flow-->
+<!--offline allows user to make requests to google api server even if the user is not logged in-->
+<!--single host origin determines scope of uris that can access the cookie. Single host origin refers to website with single host name and no subdomains-->
+<!--signincallback signifies callback function. when callback is called, it's given one time use code along with access token-->
+<!--force, forces user to login every time they visit login page; doesn't check to see if they're already logged in. useful for debugging, but should be disabled in prod-->
+<span class="g-signin"
+	data-scope="openid email"
+    data-clientid="370914344611-ufajhv2u2ncdpm4rfa3nd7lfqa7kmt1t.apps.googleusercontent.com"
+    data-redirecturi="postmessage"
+    data-accesstype="offline"
+    data-cookiepolicy="single_host_origin"
+    data-callback="signInCallback"
+    data-approvalprompt="force">
+</span>
+</div>
+
+<div id="result"></div>
+
+<!--if the authResult object contains paramater called 'code', we know Google authorization with API server was successful, and the one-time use code is present-->
+<script>
+function signInCallback(authResult) {
+	if (authResult['code']) {
+		$('#signinButton').attr('style', 'display: none');
+		// send one-time user code to the server, if the server responds, write a 'login successful' message to the web page and then redirect back to the main restaurants page
+		$.ajax({
+			type: 'POST',
+			// the url this method will call; pass in STATE object to cross-reference against forgery
+			url: '/gconnect?state={{STATE}}',
+			// we do not want jquery to process the response into a string
+			processData: false,
+			// octet means we're sending arbitrary binary stream of data; charset means it's formatted using unicode
+			contentType: 'application/octet-stream; charset=utf-8',
+			// the one-time use code is the data we send along to our server
+			data: authResult['code'],
+			// when we receive a successful response code from the server, return a successful login message to the user, then redirect to the main restaurants page after 4 seconds. If the server has any additional information to pass to the client, we can store that ini 'result'
+			success: function(result) {
+				if (result) {
+					$('#result').html('Login Successful!</br>' + result + '</br>Redirecting...')
+					setTimeout(function() {
+						window.location.href = "/restaurant";
+					}, 4000); 
+				}
+				else if (authResult['error']) {
+					console.log('There was an error: ' + authResult['error']);
+				}
+				// in the event there is no response
+				else {
+					$('#result').html('Failed to make a server side call. Check your configuration and console.');
+				}
+			}
+		});
+	}	
+}
+</script>
+<!--END GOOGLE PLUS SIGN IN-->
+
+<!--FACEBOOK SIGN IN-->
+<!-- load the FB page Javascript SDK-->
+<script>
+	window.fbAsyncInit = function() {
+	FB.init({
+		appId      : '372022926513956',
+	    cookie     : true,  // enable cookies to allow the server to access 
+	                        // the session
+	    xfbml      : true,  // parse social plugins on this page
+	    version    : 'v2.2' // use version 2.2
+	});
+
+	};
+
+	// load the SDK asynchronously, so the rest of the page can load without it
+	(function(d, s, id) {
+		var js, fjs = d.getElementsByTagName(s)[0];
+		if (d.getElementById(id)) return;
+		js = d.createElement(s); js.id = id;
+		js.src = "//connect.facebook.net/en_US/sdk.js";
+		fjs.parentNode.insertBefore(js, fjs);
+	}(document, 'script', 'facebook-jssdk'));
+
+	// Run a simple test of the Graph API after login is successful. See statusChangeCallback() for when this call is made.
+	function sendTokenToServer() {
+		// retrieves the short-lived access token
+		var access_token = FB.getAuthResponse()['accessToken'];
+		console.log(access_token)
+		console.log('Welcome! Fetching your information...');
+		// use FB SDK to also make API calls
+		FB.api('/me', function(response) {
+			console.log('Successful login for: ' + response.name);
+			// send access token to server via ajax, along with the state value
+			$.ajax({
+				type: 'POST',
+				// name route fbconnect, which we also need to implement on client side
+				url: '/fbconnect?state={{STATE}}',
+				processData: false,
+				data: access_token,
+				contentType: 'application/octet-stream; charset=utf-8',
+				success: function(result) {
+					// Handle or verify the server response if necessary
+					if (result) {
+          				$('#result').html('Login Successful!</br>'+ result + '</br>Redirecting...')
+         				setTimeout(function() {
+          					window.location.href = "/restaurant";
+         				}, 4000);
+					}
+					else {
+						$('result').html('Failed to make a server-side call. Check your configuration and console.');
+					}
+				}
+			});
+		});
+	}
+</script>
+
+<!--Use the FB SDK to create a FB login button-->
+<button>
+         
+<!--specify the scope of authorization, then invoke sendTokenToServer method (above)-->
+          <fb:login-button scope="public_profile,email" onlogin="sendTokenToServer();">
+<a href='javascript:sendTokenToServer()'>Login with Facebook</a>
+
+</fb:login-button>
+
+
+        </button>
+<!--END FACEBOOK SIGN IN -->
+
+  </body>
+
+  </html>
+
+
